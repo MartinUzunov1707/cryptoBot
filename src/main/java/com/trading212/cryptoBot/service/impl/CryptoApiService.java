@@ -16,4 +16,6 @@ public class CryptoApiService {
         this.apiConfig = apiConfig;
         this.cryptoRestClient = cryptoRestClient;
     }
+
+    public List<>
 }
