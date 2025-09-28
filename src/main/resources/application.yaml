@@ -23,11 +23,11 @@ spring:
   sql:
     init:
       mode: never
+  crypto:
+    api:
+      url: "https://api.coingecko.com/api/v3/"
+      key: ${CRYPTO_API_KEY}
   mvc:
     hiddenmethod:
       filter:
         enabled: true
-  cryptoMarketCap:
-    api:
-      key: ${CRYPTO_API_KEY}
-      baseUrl: "https://api.coingecko.com/api/v3/"

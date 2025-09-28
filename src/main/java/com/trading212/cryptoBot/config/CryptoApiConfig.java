@@ -1,19 +1,23 @@
 package com.trading212.cryptoBot.config;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Configuration;
 
 @Configuration
-@ConfigurationProperties(prefix = "cryptoMarketCap.api")
+@ConfigurationProperties(prefix = "crypto.api")
 public class CryptoApiConfig {
-    private String baseUrl;
+
+    @Value("${spring.crypto.api.url}")
+    private String url;
     private String key;
 
     public String getKey() {return key;}
-    public String getBaseUrl() {
-        return baseUrl;
+    public String getUrl() {
+        return url;
     }
-    public void setBaseUrl(String baseUrl) {
-        this.baseUrl = baseUrl;
+    public void setKey(String key){this.key = key;}
+    public void setUrl(String url) {
+        this.url = url;
     }
 }
