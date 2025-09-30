@@ -6,13 +6,15 @@ public class CandleData {
     private double high;
     private double low;
     private double close;
+    private String id;
 
-    public CandleData(long timestamp, double open, double high, double low, double close) {
+    public CandleData(long timestamp, double open, double high, double low, double close, String id) {
         this.timestamp = timestamp;
         this.open = open;
         this.high = high;
         this.low = low;
         this.close = close;
+        this.id = id;
     }
     public long getTimestamp() {
         return timestamp;
@@ -29,4 +31,5 @@ public class CandleData {
     public double getClose() {
         return close;
     }
+    public String getId() {return id;}
 }

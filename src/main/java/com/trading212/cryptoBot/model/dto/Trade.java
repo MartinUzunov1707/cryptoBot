@@ -1,9 +1,9 @@
 package com.trading212.cryptoBot.model.dto;
 
-import java.time.LocalDateTime;
+import com.trading212.cryptoBot.model.enums.Action;
 
+import java.time.LocalDateTime;
 public class Trade {
-    public enum Action { BUY, SELL }
 
     private LocalDateTime timestamp;
     private Action action;

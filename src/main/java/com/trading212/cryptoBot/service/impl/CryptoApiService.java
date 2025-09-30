@@ -24,8 +24,9 @@ public class CryptoApiService {
         this.apiConfig = apiConfig;
         this.cryptoRestClient = cryptoRestClient;
     }
-    public List<MarketDataDTO> getTopGainers(){
-        String uri = String.format("%s/coins/markets?vs_currency=USD",apiConfig.getUrl());
+    //Only top 10 because of api request per minute limit
+    public List<MarketDataDTO> getTop10Gainers(){
+        String uri = String.format("%s/coins/markets?per_page=10&vs_currency=USD",apiConfig.getUrl());
         List<MarketDataDTO>  list = cryptoRestClient.get()
                 .uri(uri)
                 .accept(MediaType.APPLICATION_JSON)
@@ -37,8 +38,8 @@ public class CryptoApiService {
         return list;
     }
 
-    public List<CandleData> getHistoricalDataById(String Id){
-       String uri = String.format("%s/coins/%s/ohlc?vs_currency=USD&days=7",apiConfig.getUrl(),Id);
+    public List<CandleData> getHistoricalDataById(String id){
+       String uri = String.format("%s/coins/%s/ohlc?vs_currency=USD&days=7",apiConfig.getUrl(),id);
         List<CandleData> data = new ArrayList<>();
         double[][] result = cryptoRestClient
                 .get()
@@ -47,7 +48,7 @@ public class CryptoApiService {
                 .retrieve()
                 .body(new ParameterizedTypeReference<>() {});
         for(double[] candle : result){
-            data.add(new CandleData((long)candle[0],candle[1],candle[2],candle[3],candle[4]));
+            data.add(new CandleData((long)candle[0],candle[1],candle[2],candle[3],candle[4],id));
         }
         return data;
     }
