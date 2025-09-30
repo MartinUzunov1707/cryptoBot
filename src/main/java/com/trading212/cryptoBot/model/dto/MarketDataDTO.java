@@ -3,7 +3,7 @@ package com.trading212.cryptoBot.model.dto;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 public class MarketDataDTO {
-    private String symbol;
+    private String id;
     @JsonProperty(value = "current_price")
     private double currentPrice;
     @JsonProperty(value = "total_volume")
@@ -15,9 +15,8 @@ public class MarketDataDTO {
     @JsonProperty(value = "price_change_percentage_24h")
     private double priceChangePercentage24h;
 
-    public MarketDataDTO(String symbol, double price, double volume, double high, double low, double change24h) {
-        this.symbol = symbol;
-
+    public MarketDataDTO(String id, double price, double volume, double high, double low, double change24h) {
+        this.id = id;
         this.currentPrice = price;
         this.totalVolume = volume;
         this.high = high;
@@ -25,8 +24,8 @@ public class MarketDataDTO {
         this.priceChangePercentage24h = change24h;
     }
 
-    public String getSymbol() {
-        return symbol;
+    public String getId() {
+        return id;
     }
 
     public double getPrice() {

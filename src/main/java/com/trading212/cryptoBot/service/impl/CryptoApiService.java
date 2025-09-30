@@ -2,6 +2,8 @@ package com.trading212.cryptoBot.service.impl;
 
 import com.trading212.cryptoBot.config.CryptoApiConfig;
 import com.trading212.cryptoBot.model.dto.CandleData;
+import com.trading212.cryptoBot.model.dto.CoinPrice;
+import com.trading212.cryptoBot.model.dto.CoinPriceDTO;
 import com.trading212.cryptoBot.model.dto.MarketDataDTO;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.ParameterizedTypeReference;
@@ -9,8 +11,7 @@ import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 
-import java.util.Collections;
-import java.util.List;
+import java.util.*;
 
 @Service
 public class CryptoApiService {
@@ -36,9 +37,38 @@ public class CryptoApiService {
         return list;
     }
 
-//    public List<CandleData> getHistoricalData(){
-//        String url = String.format("%s/coins/")
-//        cryptoRestClient.get()
-//
-//    }
+    public List<CandleData> getHistoricalDataById(String Id){
+       String uri = String.format("%s/coins/%s/ohlc?vs_currency=USD&days=7",apiConfig.getUrl(),Id);
+        List<CandleData> data = new ArrayList<>();
+        double[][] result = cryptoRestClient
+                .get()
+                .uri(uri)
+                .accept(MediaType.APPLICATION_JSON)
+                .retrieve()
+                .body(new ParameterizedTypeReference<>() {});
+        for(double[] candle : result){
+            data.add(new CandleData((long)candle[0],candle[1],candle[2],candle[3],candle[4]));
+        }
+        return data;
+    }
+
+    public List<CoinPrice> getPricesById(List<String> ids){
+        List<CoinPrice> result = new ArrayList<>();
+        String uri = String.format("%s/simple/price?vs_currencies=USD&ids=%s",apiConfig.getUrl(),String.join(",",ids));
+        CoinPriceDTO data = cryptoRestClient
+                .get()
+                .uri(uri)
+                .accept(MediaType.APPLICATION_JSON)
+                .retrieve()
+                .body(CoinPriceDTO.class);
+        for(Map.Entry<String,Object> pair : data.getCoinPrices().entrySet()){
+            LinkedHashMap<String,Number> value = (LinkedHashMap<String, Number>) pair.getValue();
+            Double price =  value.get("usd").doubleValue();
+            result.add(new CoinPrice(pair.getKey(),price));
+        }
+        return result;
+    }
+
+
+
 }
