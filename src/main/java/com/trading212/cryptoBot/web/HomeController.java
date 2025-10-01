@@ -1,14 +1,13 @@
 package com.trading212.cryptoBot.web;
 
-import com.trading212.cryptoBot.model.dto.BacktestResult;
-import com.trading212.cryptoBot.model.dto.CandleData;
-import com.trading212.cryptoBot.model.dto.MarketDataDTO;
-import com.trading212.cryptoBot.model.dto.Trade;
+import com.trading212.cryptoBot.model.dto.*;
 import com.trading212.cryptoBot.service.TradingStrategy;
 import com.trading212.cryptoBot.service.impl.BacktestEngine;
 import com.trading212.cryptoBot.service.impl.CryptoApiService;
+import com.trading212.cryptoBot.service.impl.RealTimeAnalysisEngine;
 import com.trading212.cryptoBot.service.impl.SimpleMovingAverageStrategy;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.GetMapping;
 
@@ -22,17 +21,25 @@ public class HomeController {
 
     @GetMapping("/")
     public String viewIndex(){
-        TradingStrategy strategy = new SimpleMovingAverageStrategy(10,30);
-        List<MarketDataDTO> topGainers = cryptoApiService.getTop10Gainers();
-        BacktestEngine engine = new BacktestEngine(strategy,10000.0,0.001);
-        for(MarketDataDTO coin : topGainers){
-            List<CandleData> data = cryptoApiService.getHistoricalDataById(coin.getId());
-            BacktestResult res = engine.runBacktest(data);
-            printResults(res);
-        }
+//        TradingStrategy strategy = new SimpleMovingAverageStrategy(10,30);
+//        List<MarketDataDTO> topGainers = cryptoApiService.getTop10Gainers();
+//        BacktestEngine engine = new BacktestEngine(strategy,10000.0,0.001);
+//        for(MarketDataDTO coin : topGainers){
+//            List<CandleData> data = cryptoApiService.getHistoricalDataById(coin.getId());
+//            BacktestResult res = engine.runBacktest(data);
+//            printResults(res);
+//        }
         return "index";
     }
-
+    @Scheduled(cron = "*/5 * * * * *")
+    private void analyzeInRealTime(){
+        List<MarketDataDTO> topGainers = cryptoApiService.getTop10Gainers();
+        RealTimeAnalysisEngine engine = new RealTimeAnalysisEngine();
+        for(MarketDataDTO data : topGainers){
+            List<CandleData> historicalData = cryptoApiService.getHistoricalDataById(data.getId());
+            engine.displayAnalysis(engine.analyzeMarket(data,historicalData));
+        }
+    }
     private static void printResults(BacktestResult result) {
         System.out.println("\n=== BACKTEST RESULTS ===");
         System.out.printf("Strategy: SMA Crossover%n");

@@ -24,7 +24,7 @@ public class MarketAnalysis {
         this.confidence = confidence;
     }
 
-    public void addInsights(String insight) {
+    public void addInsight(String insight) {
         this.insights.add(insight);
     }
 

@@ -1,19 +1,20 @@
 package com.trading212.cryptoBot.logic;
 
+import com.trading212.cryptoBot.model.dto.CandleData;
 import com.trading212.cryptoBot.model.dto.MarketDataDTO;
 
 import java.util.ArrayList;
 import java.util.List;
 
 public class TechnicalIndicatorCalculator {
-    public double calculateRSI(List<MarketDataDTO> data, int period){
+    public double calculateRSI(List<CandleData> data, int period){
         if(data.size() < period + 1){
             return 50.0;
         }
         double gains = 0;
         double losses = 0;
         for(int i = data.size() - period; i < data.size(); i++){
-            double priceChange = data.get(i).getPrice() - data.get(i-1).getPrice();
+            double priceChange = data.get(i).getClose() - data.get(i-1).getClose();
             if(priceChange > 0){
                 gains += priceChange;
             }else{
@@ -29,33 +30,33 @@ public class TechnicalIndicatorCalculator {
         return 100 - (100 / (1 + result));
     }
 
-    public double calculateSMA(List<MarketDataDTO> data, int period){
+    public double calculateSMA(List<CandleData> data, int period){
         if(data.size() < period){
-            return data.get(data.size() - 1).getPrice();
+            return data.get(data.size() - 1).getClose();
         }
 
         double sum = 0;
         for(int i = data.size() - period; i <  data.size(); i++){
-            sum += data.get(i).getPrice();
+            sum += data.get(i).getClose();
         }
         return sum / period;
     }
 
-    public double calculateEMA(List<MarketDataDTO> data, int period){
+    public double calculateEMA(List<CandleData> data, int period){
         if(data.size() < period){
-            return data.get(data.size() - 1).getPrice();
+            return data.get(data.size() - 1).getClose();
         }
 
         double multiplier = 2.0 / (period + 1);
         double ema = calculateSMA(data.subList(0,period), period);
 
         for(int i = period; i<data.size(); i++){
-            ema = (data.get(i).getPrice() - ema) * multiplier + ema;
+            ema = (data.get(i).getClose() - ema) * multiplier + ema;
         }
         return ema;
     }
 
-    public double[] calculateMACD(List<MarketDataDTO> data){
+    public double[] calculateMACD(List<CandleData> data){
         double ema12 = calculateEMA(data,12);
         double ema26 = calculateEMA(data,26);
         double macd = ema12 - ema26;
@@ -64,30 +65,30 @@ public class TechnicalIndicatorCalculator {
         return new double[]{macd,signal,histogram};
     }
 
-    private double calculateEmaForMACD(List<MarketDataDTO> data, int period, double currentMACD) {
-        List<MarketDataDTO> macdData = data.subList(Math.max(0, data.size() - 50), data.size());
+    private double calculateEmaForMACD(List<CandleData> data, int period, double currentMACD) {
+        List<CandleData> macdData = data.subList(Math.max(0, data.size() - 50), data.size());
         if (macdData.size() < period) {
             return currentMACD;
         }
 
         double multiplier = 2.0 / (period + 1);
-        double ema = macdData.get(0).getPrice(); // Using price as placeholder
+        double ema = macdData.get(0).getClose(); // Using price as placeholder
 
         for (int i = 1; i < macdData.size(); i++) {
-            ema = (macdData.get(i).getPrice() - ema) * multiplier + ema;
+            ema = (macdData.get(i).getClose() - ema) * multiplier + ema;
         }
 
         return ema;
     }
 
-    private double[] calculateBollingerBands(List<MarketDataDTO> data, int period, double stdDevMultiplier){
+    public double[] calculateBollingerBands(List<CandleData> data, int period, double stdDevMultiplier){
         double sma = calculateSMA(data,period);
         if(data.size() < period){
             return new double[]{sma,sma,sma};
         }
         double sumSquaredDiff = 0;
         for(int i = data.size() - period; i < data.size();i++){
-            double diff = data.get(i).getPrice() - sma;
+            double diff = data.get(i).getClose() - sma;
             sumSquaredDiff += diff * diff;
         }
         double stdDev = Math.sqrt(sumSquaredDiff / period);
@@ -96,7 +97,7 @@ public class TechnicalIndicatorCalculator {
 
         return new double[]{upperBand, lowerBand, sma};
     }
-    public double[] calculateStochastic(List<MarketDataDTO> data, int periodK, int periodD) {
+    public double[] calculateStochastic(List<CandleData> data, int periodK, int periodD) {
         if (data.size() < periodK) {
             return new double[]{50.0, 50.0};
         }
@@ -108,15 +109,15 @@ public class TechnicalIndicatorCalculator {
         return new double[]{stochasticK, stochasticD};
     }
 
-    private double calculateStochasticK(List<MarketDataDTO> data, int period) {
+    private double calculateStochasticK(List<CandleData> data, int period) {
         int startIndex = Math.max(0, data.size() - period);
-        List<MarketDataDTO> periodData = data.subList(startIndex, data.size());
+        List<CandleData> periodData = data.subList(startIndex, data.size());
 
         double lowestLow = Double.MAX_VALUE;
         double highestHigh = Double.MIN_VALUE;
-        double currentClose = data.get(data.size() - 1).getPrice();
-        for (MarketDataDTO candle : periodData) {
-            double price = candle.getPrice();
+        double currentClose = data.get(data.size() - 1).getClose();
+        for (CandleData candle : periodData) {
+            double price = candle.getClose();
             lowestLow = Math.min(lowestLow, price);
             highestHigh = Math.max(highestHigh, price);
         }
@@ -128,7 +129,7 @@ public class TechnicalIndicatorCalculator {
         return ((currentClose - lowestLow) / (highestHigh - lowestLow)) * 100;
     }
 
-    public double calculateSMAForStochastic(List<MarketDataDTO> data, int periodD, double currentK) {
+    public double calculateSMAForStochastic(List<CandleData> data, int periodD, double currentK) {
 
         if (data.size() < periodD) {
             return currentK;
@@ -155,16 +156,16 @@ public class TechnicalIndicatorCalculator {
         return sum / kValues.size();
     }
 
-    private double calculateHistoricalStochasticK(List<MarketDataDTO> data, int endIndex, int period) {
+    private double calculateHistoricalStochasticK(List<CandleData> data, int endIndex, int period) {
         int startIndex = Math.max(0, endIndex - period + 1);
-        List<MarketDataDTO> periodData = data.subList(startIndex, endIndex + 1);
+        List<CandleData> periodData = data.subList(startIndex, endIndex + 1);
 
         double lowestLow = Double.MAX_VALUE;
         double highestHigh = Double.MIN_VALUE;
-        double currentClose = data.get(endIndex).getPrice();
+        double currentClose = data.get(endIndex).getClose();
 
-        for (MarketDataDTO candle : periodData) {
-            double price = candle.getPrice();
+        for (CandleData candle : periodData) {
+            double price = candle.getClose();
             lowestLow = Math.min(lowestLow, price);
             highestHigh = Math.max(highestHigh, price);
         }
