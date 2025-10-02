@@ -7,6 +7,7 @@ import com.trading212.cryptoBot.model.dto.Trade;
 import com.trading212.cryptoBot.model.enums.Action;
 import com.trading212.cryptoBot.service.TradingStrategy;
 
+import java.sql.Timestamp;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -41,7 +42,7 @@ public class BacktestEngine {
                 holdings += quantity;
                 double tradeValue = quantity * currentCandle.getClose();
                 trades.add(new Trade(
-                        LocalDateTime.ofInstant(Instant.ofEpochMilli(currentCandle.getTimestamp()),java.time.ZoneId.systemDefault()),
+                        Timestamp.from(Instant.ofEpochMilli(currentCandle.getTimestamp())),
                         Action.BUY,
                         currentCandle.getClose(),
                         quantity,
@@ -53,7 +54,7 @@ public class BacktestEngine {
                 capital += tradeValue * (1-transactionFee);
 
                 trades.add(new Trade(
-                        LocalDateTime.ofInstant(Instant.ofEpochMilli(currentCandle.getTimestamp()),java.time.ZoneId.systemDefault()),
+                        Timestamp.from(Instant.ofEpochMilli(currentCandle.getTimestamp())),
                         Action.SELL,
                         currentCandle.getClose(),
                         holdings,

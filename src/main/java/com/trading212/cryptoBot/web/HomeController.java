@@ -1,23 +1,24 @@
 package com.trading212.cryptoBot.web;
 
 import com.trading212.cryptoBot.model.dto.*;
-import com.trading212.cryptoBot.service.TradingStrategy;
-import com.trading212.cryptoBot.service.impl.BacktestEngine;
+import com.trading212.cryptoBot.model.enums.Action;
+import com.trading212.cryptoBot.repository.TradeHistoryRepository;
 import com.trading212.cryptoBot.service.impl.CryptoApiService;
 import com.trading212.cryptoBot.service.impl.RealTimeAnalysisEngine;
-import com.trading212.cryptoBot.service.impl.SimpleMovingAverageStrategy;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.GetMapping;
 
-import java.util.ArrayList;
+import java.sql.Timestamp;
+import java.time.Instant;
 import java.util.List;
 
 @Controller
 public class HomeController {
     @Autowired
     public CryptoApiService cryptoApiService;
+    @Autowired
+    public TradeHistoryRepository tradeHistoryRepository;
 
     @GetMapping("/")
     public String viewIndex(){
@@ -29,12 +30,27 @@ public class HomeController {
 //            BacktestResult res = engine.runBacktest(data);
 //            printResults(res);
 //        }
+        Trade btc = new Trade(Timestamp.from(Instant.now()), Action.BUY,1707,5,"testCoin");
+        Trade eth = new Trade(Timestamp.from(Instant.now()), Action.BUY,2707,10,"testCoin2");
+        tradeHistoryRepository.addTrade(btc);
+        tradeHistoryRepository.addTrade(eth);
+        List<Trade> trades = tradeHistoryRepository.getAllTrades();
+        for(Trade trade : trades){
+            System.out.println(String.format("%s: %s %.2f of %s for %.2f USD",
+                    trade.getTimestamp().toString(),
+                    trade.getAction().toString(),
+                    trade.getQuantity(),
+                    trade.getCoinId(),
+                    trade.getPrice()));
+        }
+
         return "index";
     }
-    @Scheduled(cron = "*/5 * * * * *")
+    //@Scheduled(cron = "*/5 * * * * *")
     private void analyzeInRealTime(){
         List<MarketDataDTO> topGainers = cryptoApiService.getTop10Gainers();
         RealTimeAnalysisEngine engine = new RealTimeAnalysisEngine();
+        //
         for(MarketDataDTO data : topGainers){
             List<CandleData> historicalData = cryptoApiService.getHistoricalDataById(data.getId());
             engine.displayAnalysis(engine.analyzeMarket(data,historicalData));
@@ -65,7 +81,7 @@ public class HomeController {
                     trade.getTimestamp(),
                     trade.getAction(),
                     trade.getQuantity(),
-                    trade.getSymbol(),
+                    trade.getCoinId(),
                     trade.getPrice());
         }
     }
