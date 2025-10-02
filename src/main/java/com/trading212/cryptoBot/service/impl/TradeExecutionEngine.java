@@ -1,12 +1,12 @@
 package com.trading212.cryptoBot.service.impl;
 
-import com.trading212.cryptoBot.model.dto.MarketAnalysis;
-import com.trading212.cryptoBot.model.dto.Position;
-import com.trading212.cryptoBot.model.dto.TechnicalIndicators;
-import com.trading212.cryptoBot.model.dto.Trade;
+import com.trading212.cryptoBot.model.dto.*;
 import com.trading212.cryptoBot.model.enums.Action;
+import com.trading212.cryptoBot.repository.PortfolioRepository;
+import com.trading212.cryptoBot.repository.TradeHistoryRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 
+import javax.sound.sampled.Port;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.time.LocalDateTime;
@@ -18,14 +18,21 @@ import java.util.List;
 public class TradeExecutionEngine {
     @Autowired
     private final CryptoApiService apiService;
+    @Autowired
+    private final TradeHistoryRepository tradeHistoryRepository;
+    @Autowired
+    private final PortfolioRepository portfolioRepository;
     private final RealTimeAnalysisEngine analysisEngine;
     private double availableCapital;
     private final double riskPerTrade;
     private final Map<String, Position> activePositions;
     private final List<Trade> tradeHistory;
 
-    public TradeExecutionEngine(CryptoApiService apiService, double initialCapital, double riskPerTrade) {
+
+    public TradeExecutionEngine(CryptoApiService apiService, TradeHistoryRepository tradeHistoryRepository, PortfolioRepository portfolioRepository, double initialCapital, double riskPerTrade) {
         this.apiService = apiService;
+        this.tradeHistoryRepository = tradeHistoryRepository;
+        this.portfolioRepository = portfolioRepository;
         this.analysisEngine = new RealTimeAnalysisEngine();
         this.availableCapital = initialCapital;
         this.riskPerTrade = riskPerTrade;
@@ -101,7 +108,7 @@ public class TradeExecutionEngine {
         return confirmations >= 3;
     }
 
-    private void executeBuy(String symbol, double price, MarketAnalysis analysis) {
+    private void executeBuy(String coinId, double price, MarketAnalysis analysis) {
         double positionSize = calculatePositionSize(price);
 
         if (positionSize * price > availableCapital) {
@@ -113,23 +120,30 @@ public class TradeExecutionEngine {
         double takeProfit = calculateTakeProfit(price, "BUY", analysis);
 
         Position position = new Position(
-                symbol, price, positionSize, LocalDateTime.now(), stopLoss, takeProfit
+                coinId, price, positionSize, LocalDateTime.now(), stopLoss, takeProfit
         );
 
-        activePositions.put(symbol, position);
+        activePositions.put(coinId, position);
         availableCapital -= positionSize * price;
 
         Trade trade = new Trade(
-                Timestamp.from(Instant.now()), Action.BUY, price, positionSize, symbol);
-        tradeHistory.add(trade);
+                Timestamp.from(Instant.now()), Action.BUY, price, positionSize, coinId);
+        tradeHistoryRepository.addTrade(trade);
+        PortfolioDTO coin = getCoinById(coinId);
+        if(coin == null){
+            portfolioRepository.addCoinToPortfolio(new PortfolioDTO(coinId,positionSize));
+        }
+        else{
+            portfolioRepository.setAmountByCoinId(new PortfolioDTO(coinId,coin.getAmount() + positionSize));
+        }
 
         System.out.printf("EXECUTED BUY: %.6f %s @ $%.2f | Risk: $%.2f | Reward: $%.2f%n",
-                positionSize, symbol, price,
+                positionSize, coinId, price,
                 (price - stopLoss) * positionSize,
                 (takeProfit - price) * positionSize);
     }
-    private void executeSell(String symbol, double price, String reason) {
-        Position position = activePositions.get(symbol);
+    private void executeSell(String coinId, double price, String reason) {
+        Position position = activePositions.get(coinId);
         if (position == null) return;
 
         double profitLoss = (price - position.getEntryPrice()) * position.getQuantity();
@@ -137,15 +151,24 @@ public class TradeExecutionEngine {
 
         availableCapital += position.getQuantity() * price;
 
-        Trade trade = new Trade(Timestamp.from(Instant.now()), Action.SELL, price, position.getQuantity(),symbol);
-        tradeHistory.add(trade);
+        Trade trade = new Trade(Timestamp.from(Instant.now()), Action.SELL, price, position.getQuantity(),coinId);
+        tradeHistoryRepository.addTrade(trade);
+        activePositions.remove(coinId);
+        PortfolioDTO coin = getCoinById(coinId);
 
-        activePositions.remove(symbol);
-
+        if(coin!=null && coin.getAmount() <= position.getQuantity()){
+            portfolioRepository.deleteCoinById(coin);
+        }
         System.out.printf("EXECUTED SELL: %.6f %s @ $%.2f | P/L: $%.2f (%.2f%%)%n",
-                position.getQuantity(), symbol, price, profitLoss, profitLossPercent);
+                position.getQuantity(), coinId, price, profitLoss, profitLossPercent);
     }
-
+    PortfolioDTO getCoinById(String id){
+        List<PortfolioDTO> portfolio = portfolioRepository.getPortfolio();
+        for(PortfolioDTO coin : portfolio){
+            if(coin.getCoinId() == id) return coin;
+        }
+        return null;
+    }
     private double calculatePositionSize(double entryPrice) {
         double riskAmount = availableCapital * riskPerTrade;
         double stopLossDistance = entryPrice * 0.02;
@@ -185,21 +208,21 @@ public class TradeExecutionEngine {
         }
     }
 
-    private void manageExistingPosition(String symbol, double currentPrice, MarketAnalysis analysis) {
-        Position position = activePositions.get(symbol);
+    private void manageExistingPosition(String coinId, double currentPrice, MarketAnalysis analysis) {
+        Position position = activePositions.get(coinId);
         if (position == null) return;
 
         double unrealizedPnl = (currentPrice - position.getEntryPrice()) * position.getQuantity();
         double unrealizedPercent = ((currentPrice - position.getEntryPrice()) / position.getEntryPrice()) * 100;
 
         if (analysis.getSignal().equals("SELL") && analysis.getConfidence() > 0.7) {
-            executeSell(symbol, currentPrice, "Early exit due to SELL signal");
+            executeSell(coinId, currentPrice, "Early exit due to SELL signal");
         }
 
-        applyTrailingStop(symbol, currentPrice, position);
+        applyTrailingStop(coinId, currentPrice, position);
 
         System.out.printf("Position Update: %s | Current: $%.2f | Unrealized P/L: $%.2f (%.2f%%)%n",
-                symbol, currentPrice, unrealizedPnl, unrealizedPercent);
+                coinId, currentPrice, unrealizedPnl, unrealizedPercent);
     }
 
     private void applyTrailingStop(String symbol, double currentPrice, Position position) {
@@ -261,5 +284,14 @@ public class TradeExecutionEngine {
                     trade.getQuantity(), trade.getCoinId(),
                     trade.getPrice());
         }
+    }
+    public Boolean portfolioHasCoinById(String id){
+        List<PortfolioDTO> portfolio = portfolioRepository.getPortfolio();
+        for(PortfolioDTO coin : portfolio){
+            if(coin.getCoinId().equals(id)){
+                return true;
+            }
+        }
+        return false;
     }
 }

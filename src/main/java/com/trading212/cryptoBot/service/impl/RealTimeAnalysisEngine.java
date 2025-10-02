@@ -60,7 +60,7 @@ public class RealTimeAnalysisEngine {
         int bullishSignals = 0;
         int bearishSignals = 0;
 
-        if (indicators.getRsi() > 50) bullishSignals++;
+        if (indicators.getRsi() > 75) bullishSignals++;
         else bearishSignals++;
 
         if (indicators.getMacd() > indicators.getMacdSignal()) bullishSignals++;

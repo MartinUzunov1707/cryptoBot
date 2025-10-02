@@ -38,6 +38,15 @@ public class CryptoApiService {
         return list;
     }
 
+    public List<MarketDataDTO> getMarketDataByIds(List<String> ids) {
+        String uri = String.format("%s/coins/markets?ids=%s&vs_currency=USD",apiConfig.getUrl(),String.join(",",ids));
+        return cryptoRestClient.get()
+                .uri(uri)
+                .accept(MediaType.APPLICATION_JSON)
+                .retrieve()
+                .body(new ParameterizedTypeReference<>() {});
+    }
+
     public List<CandleData> getHistoricalDataById(String id){
        String uri = String.format("%s/coins/%s/ohlc?vs_currency=USD&days=7",apiConfig.getUrl(),id);
         List<CandleData> data = new ArrayList<>();

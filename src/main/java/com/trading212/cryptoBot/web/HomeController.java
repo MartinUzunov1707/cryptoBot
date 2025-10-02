@@ -2,16 +2,20 @@ package com.trading212.cryptoBot.web;
 
 import com.trading212.cryptoBot.model.dto.*;
 import com.trading212.cryptoBot.model.enums.Action;
+import com.trading212.cryptoBot.repository.PortfolioRepository;
 import com.trading212.cryptoBot.repository.TradeHistoryRepository;
 import com.trading212.cryptoBot.service.impl.CryptoApiService;
 import com.trading212.cryptoBot.service.impl.RealTimeAnalysisEngine;
+import com.trading212.cryptoBot.service.impl.TradeExecutionEngine;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.GetMapping;
 
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Controller
 public class HomeController {
@@ -19,41 +23,41 @@ public class HomeController {
     public CryptoApiService cryptoApiService;
     @Autowired
     public TradeHistoryRepository tradeHistoryRepository;
+    @Autowired
+    public PortfolioRepository portfolioRepository;
+
+    public TradeExecutionEngine tradeExecutionEngine = new TradeExecutionEngine(cryptoApiService,tradeHistoryRepository,portfolioRepository,10000,0.02);
 
     @GetMapping("/")
     public String viewIndex(){
-//        TradingStrategy strategy = new SimpleMovingAverageStrategy(10,30);
-//        List<MarketDataDTO> topGainers = cryptoApiService.getTop10Gainers();
-//        BacktestEngine engine = new BacktestEngine(strategy,10000.0,0.001);
-//        for(MarketDataDTO coin : topGainers){
-//            List<CandleData> data = cryptoApiService.getHistoricalDataById(coin.getId());
-//            BacktestResult res = engine.runBacktest(data);
-//            printResults(res);
+//        Trade btc = new Trade(Timestamp.from(Instant.now()), Action.BUY,1707,5,"testCoin");
+//        Trade eth = new Trade(Timestamp.from(Instant.now()), Action.BUY,2707,10,"testCoin2");
+//        tradeHistoryRepository.addTrade(btc);
+//        tradeHistoryRepository.addTrade(eth);
+//        List<Trade> trades = tradeHistoryRepository.getAllTrades();
+//        for(Trade trade : trades){
+//            System.out.println(String.format("%s: %s %.2f of %s for %.2f USD",
+//                    trade.getTimestamp().toString(),
+//                    trade.getAction().toString(),
+//                    trade.getQuantity(),
+//                    trade.getCoinId(),
+//                    trade.getPrice()));
 //        }
-        Trade btc = new Trade(Timestamp.from(Instant.now()), Action.BUY,1707,5,"testCoin");
-        Trade eth = new Trade(Timestamp.from(Instant.now()), Action.BUY,2707,10,"testCoin2");
-        tradeHistoryRepository.addTrade(btc);
-        tradeHistoryRepository.addTrade(eth);
-        List<Trade> trades = tradeHistoryRepository.getAllTrades();
-        for(Trade trade : trades){
-            System.out.println(String.format("%s: %s %.2f of %s for %.2f USD",
-                    trade.getTimestamp().toString(),
-                    trade.getAction().toString(),
-                    trade.getQuantity(),
-                    trade.getCoinId(),
-                    trade.getPrice()));
-        }
-
         return "index";
     }
-    //@Scheduled(cron = "*/5 * * * * *")
-    private void analyzeInRealTime(){
-        List<MarketDataDTO> topGainers = cryptoApiService.getTop10Gainers();
+    @Scheduled(cron = "*/5 * * * * *")
+    private void analyzeInRealTime() throws InterruptedException {
+        List<MarketDataDTO> watchlist = cryptoApiService.getTop10Gainers();
         RealTimeAnalysisEngine engine = new RealTimeAnalysisEngine();
-        //
-        for(MarketDataDTO data : topGainers){
+        List<PortfolioDTO> portfolio = portfolioRepository.getPortfolio();
+        List<String> ids = portfolio.stream().map(x->x.getCoinId()).collect(Collectors.toList());
+        if(!portfolio.isEmpty()){
+           cryptoApiService.getMarketDataByIds(ids).forEach(x->watchlist.add(x));
+        }
+        for(MarketDataDTO data : watchlist){
             List<CandleData> historicalData = cryptoApiService.getHistoricalDataById(data.getId());
-            engine.displayAnalysis(engine.analyzeMarket(data,historicalData));
+            tradeExecutionEngine.analyzeAndExecute(engine.analyzeMarket(data,historicalData));
+            Thread.sleep(35000);
         }
     }
     private static void printResults(BacktestResult result) {
