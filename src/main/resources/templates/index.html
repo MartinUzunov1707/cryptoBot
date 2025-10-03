@@ -8,38 +8,46 @@
         <header class="dashboard-header">
             <div class="row align-items-center">
                 <div class="col-md-8">
-                    <h1><i class="fas fa-robot me-3"></i>Crypto Trading Bot</h1>
+                    <h1><i class="fas fa-robot me-3 mt-4"></i>Crypto Trading Bot</h1>
                     <p class="lead mb-0">Automated trading with real-time analytics</p>
                 </div>
                 <div class="col-md-4 text-end">
                     <div class="mode-indicator">
-                        <span id="currentMode" class="badge bg-info fs-6 p-2">TRAINING MODE</span>
+                        <span id="currentMode" class="badge bg-success fs-6 p-2">TRAINING MODE</span>
                     </div>
                 </div>
             </div>
         </header>
 
         <!-- Control Panel -->
-        <div class="control-panel mb-4">
+        <div class="control-panel mt-4">
             <div class="row g-3 align-items-center">
                 <div class="col-lg-8">
                     <div class="d-flex flex-wrap gap-3">
-                        <button class="button-64" id="startBtn">
-                            <span class="text"><i class="fas fa-play me-2"></i>Start Bot</span>
-                        </button>
-                        <button class="button-64" id="pauseBtn">
-                            <span class="text"><i class="fas fa-pause me-2"></i>Pause</span>
-                        </button>
-                        <button class="button-64" id="resetBtn">
-                            <span class="text"><i class="fas fa-redo me-2"></i>Reset</span>
-                        </button>
+                        <form th:action ="@{/start}"  method="post">
+                            <button class="button-64" id="startBtn">
+                                <span class="text"><i class="fas fa-play me-2"></i>Start Bot</span>
+                            </button>
+                        </form>
+                        <form th:action ="@{/pause}"  method="post">
+                            <button class="button-64" id="pauseBtn">
+                                <span class="text"><i class="fas fa-pause me-2"></i>Pause</span>
+                            </button>
+                        </form>
+                        <form th:action ="@{/reset}"  method="post">
+                            <button class="button-64" id="resetBtn">
+                                <span class="text"><i class="fas fa-redo me-2"></i>Reset</span>
+                            </button>
+                        </form>
                     </div>
                 </div>
                 <div class="col-lg-4">
                     <div class="d-flex align-items-center justify-content-end">
                         <div class="form-check form-switch me-3">
-                            <input  checked="true" class="switch" type="checkbox" id="modeToggle">
-                            <label class="form-check-label text-white" for="modeToggle" id="modeLabel">Training Mode</label>
+                            <form th:action ="@{/switch-mode}" th:object = "${toggleForm}" method="post" id="toggleForm">
+                                <input th:field="*{checked}"  th:checked =${toggleForm.checked} class="switch" type="checkbox" id="modeToggle">
+                                <label class="form-check-label text-white ms-1 align-top" for="modeToggle" id="modeLabel">Training Mode</label>
+                            </form>
                         </div>
                     </div>
                 </div>
@@ -47,7 +55,7 @@
         </div>
 
         <!-- Stats Cards -->
-        <div class="row g-4 mb-4">
+        <div class="row g-4 mb-2 mt-3">
             <div class="col-md-3">
                 <div class="stats-card h-100 p-3">
                     <div class="d-flex align-items-center">
@@ -55,7 +63,7 @@
                             <i class="fas fa-wallet"></i>
                         </div>
                         <div>
-                            <h3 class="card-value" id="balance">$10,000.00</h3>
+                            <h3 class="card-value" id="balance" th:text="${performanceMetrics.actualPortfolioVolume}"></h3>
                             <p class="card-label">Account Balance</p>
                         </div>
                     </div>
@@ -68,8 +76,8 @@
                             <i class="fab fa-bitcoin"></i>
                         </div>
                         <div>
-                            <h3 class="card-value" id="btcHoldings">0.000000</h3>
-                            <p class="card-label">BTC Holdings</p>
+                            <h3 class="card-value" id="btcHoldings" th:text="${performanceMetrics.allHoldings}">0.000000</h3>
+                            <p class="card-label">All Holdings</p>
                         </div>
                     </div>
                 </div>
@@ -81,7 +89,7 @@
                             <i class="fas fa-chart-line"></i>
                         </div>
                         <div>
-                            <h3 class="card-value positive" id="totalPnl">+$0.00</h3>
+                            <h3 class="card-value positive" id="totalPnl" th:text="${performanceMetrics.pnl + '$'}">+$0.00</h3>
                             <p class="card-label">Total P&L</p>
                         </div>
                     </div>
@@ -94,7 +102,7 @@
                             <i class="fas fa-percentage"></i>
                         </div>
                         <div>
-                            <h3 class="card-value" id="winRate">0%</h3>
+                            <h3 class="card-value" id="winRate"  th:text="${performanceMetrics.winRate + '%'}">0%</h3>
                             <p class="card-label">Win Rate</p>
                         </div>
                     </div>
@@ -102,44 +110,32 @@
             </div>
         </div>
         <!-- Performance Metrics -->
-        <div class="row g-4 mt-4">
+        <div class="row g-4">
             <div class="col-12">
                 <div class="metrics-card p-3">
-                    <h3 class="mb-3"><i class="fas fa-tachometer-alt me-2"></i>Performance Metrics</h3>
+                    <h3 class="mb-3"><i class="fas fa-tachometer-alt me-2"></i>Performance Metrics (Backtests included)</h3>
                     <div class="row text-center">
                         <div class="col-md-2 col-6 mb-3">
                             <div class="metric">
-                                <div class="metric-value" id="totalTrades">0</div>
+                                <div class="metric-value" id="totalTrades" th:text="${performanceMetrics.totalTrades}">0</div>
                                 <div class="metric-label">Total Trades</div>
                             </div>
                         </div>
                         <div class="col-md-2 col-6 mb-3">
                             <div class="metric">
-                                <div class="metric-value" id="successRate">0%</div>
-                                <div class="metric-label">Success Rate</div>
-                            </div>
-                        </div>
-                        <div class="col-md-2 col-6 mb-3">
-                            <div class="metric">
-                                <div class="metric-value" id="activeTrades">0</div>
+                                <div class="metric-value" id="activeTrades" th:text="${performanceMetrics.activeTrades}">0</div>
                                 <div class="metric-label">Active Trades</div>
                             </div>
                         </div>
                         <div class="col-md-2 col-6 mb-3">
                             <div class="metric">
-                                <div class="metric-value" id="avgTradeTime">0s</div>
+                                <div class="metric-value" id="avgTradeTime">25s</div>
                                 <div class="metric-label">Avg Trade Time</div>
                             </div>
                         </div>
                         <div class="col-md-2 col-6 mb-3">
                             <div class="metric">
-                                <div class="metric-value positive" id="dailyPnl">+$0.00</div>
-                                <div class="metric-label">Daily P&L</div>
-                            </div>
-                        </div>
-                        <div class="col-md-2 col-6 mb-3">
-                            <div class="metric">
-                                <div class="metric-value" id="currentValue">$10,000</div>
+                                <div class="metric-value" id="currentValue" th:text="${performanceMetrics.hypotheticalPortfolioVolume + '$'}">$10,000</div>
                                 <div class="metric-label">Portfolio Value</div>
                             </div>
                         </div>
@@ -148,7 +144,7 @@
             </div>
         </div>
         <!-- Charts and Data -->
-        <div class="row g-4 flex-grow-1">
+        <div class="row g-4 flex-grow-1" id = "priceChart">
             <!-- Price Chart -->
             <!-- Filter Controls -->
             <div class="row mb-3">
@@ -217,41 +213,7 @@
                     </div>
                 </div>
             </div>
-
-            <!-- Trade History -->
-            <div class="col-lg-4">
-                <div class="history-card h-100 d-flex flex-column">
-                    <div class="p-3 border-bottom border-secondary">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <h3 class="mb-0"><i class="fas fa-history me-2"></i>Recent Trades</h3>
-                            <button class="btn btn-sm btn-outline-light" id="exportHistory">
-                                <i class="fas fa-download"></i>
-                            </button>
-                        </div>
-                    </div>
-                    <div class="flex-grow-1">
-                        <div class="table-container h-100">
-                            <table class="table table-dark table-hover mb-0" id="tradeHistory">
-                                <thead class="sticky-top">
-                                <tr>
-                                    <th>Action</th>
-                                    <th>Amount</th>
-                                    <th>Price</th>
-                                </tr>
-                                </thead>
-                                <tbody id="tradeHistoryBody">
-                                <tr>
-                                    <td colspan="3" class="text-center text-muted py-4">No trades yet</td>
-                                </tr>
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-            </div>
         </div>
-
-
 
         <!-- Bot Status -->
         <div class="row g-4 mt-4">

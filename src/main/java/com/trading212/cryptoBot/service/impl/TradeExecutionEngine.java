@@ -40,10 +40,10 @@ public class TradeExecutionEngine {
         this.tradeHistory = new ArrayList<>();
     }
 
-    public void analyzeAndExecute(MarketAnalysis analysis){
+    public PerformanceMetrics analyzeAndExecute(MarketAnalysis analysis){
         if(analysis == null){
             System.out.println("Failed to get analysis.");
-            return;
+            return null;
         }
         String coinId = analysis.getMarketData().getId();
         String signal = analysis.getSignal();
@@ -77,6 +77,7 @@ public class TradeExecutionEngine {
                 break;
         }
         checkRiskManagement(coinId, currentPrice);
+        return new PerformanceMetrics(tradeHistory.size(),0,activePositions.size(),availableCapital);
     }
 
     private boolean shouldEnterTrade(MarketAnalysis analysis) {
@@ -159,6 +160,7 @@ public class TradeExecutionEngine {
         if(coin!=null && coin.getAmount() <= position.getQuantity()){
             portfolioRepository.deleteCoinById(coin);
         }
+
         System.out.printf("EXECUTED SELL: %.6f %s @ $%.2f | P/L: $%.2f (%.2f%%)%n",
                 position.getQuantity(), coinId, price, profitLoss, profitLossPercent);
     }

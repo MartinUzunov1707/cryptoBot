@@ -49,7 +49,7 @@
             const modeLabel = document.getElementById('modeLabel');
             const currentMode = document.getElementById('currentMode');
 
-            modeToggle.addEventListener('change', function() {
+            modeToggle.addEventListener('change', () => {
                 if (this.checked) {
                     modeLabel.textContent = 'Trading Mode';
                     currentMode.textContent = 'TRADING MODE';

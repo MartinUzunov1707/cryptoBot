@@ -15,7 +15,7 @@ import java.util.List;
 
 public class BacktestEngine {
     private final TradingStrategy strategy;
-    private final double initialCapital;
+    private double initialCapital;
     private final double transactionFee;
 
     public BacktestEngine(TradingStrategy strategy, double initialCapital, double transactionFee) {
@@ -88,8 +88,10 @@ public class BacktestEngine {
         }
 
         double sharpeRatio = calculateSharpeRatio(portfolioValues);
+        double initialCapitalCopy = initialCapital;
+        initialCapital = finalPortfolioValue;
         return new BacktestResult(
-                initialCapital,
+                initialCapitalCopy,
                 finalPortfolioValue,
                 totalReturn,
                 sharpeRatio,
@@ -99,6 +101,7 @@ public class BacktestEngine {
                 losingTrades,
                 trades
         );
+
     }
 
     private double calculateSharpeRatio(List<Double> portfolioValues) {

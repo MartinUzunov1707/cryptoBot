@@ -4,18 +4,22 @@ import com.trading212.cryptoBot.model.dto.*;
 import com.trading212.cryptoBot.model.enums.Action;
 import com.trading212.cryptoBot.repository.PortfolioRepository;
 import com.trading212.cryptoBot.repository.TradeHistoryRepository;
-import com.trading212.cryptoBot.service.impl.CryptoApiService;
-import com.trading212.cryptoBot.service.impl.RealTimeAnalysisEngine;
-import com.trading212.cryptoBot.service.impl.TradeExecutionEngine;
+import com.trading212.cryptoBot.service.impl.*;
+import org.springframework.beans.SimpleTypeConverter;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.ModelAttribute;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.servlet.ModelAndView;
 
+import javax.sound.sampled.Port;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.List;
+import java.util.concurrent.*;
 import java.util.stream.Collectors;
 
 @Controller
@@ -26,42 +30,95 @@ public class HomeController {
     public TradeHistoryRepository tradeHistoryRepository;
     @Autowired
     public PortfolioRepository portfolioRepository;
-
+    public PerformanceMetrics globalPerformanceMetrics = new PerformanceMetrics(0,0,0,10000);
+    public ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
+    Boolean isTrading = false;
+    Boolean isRunning = false;
+    public BacktestEngine backtestEngine = new BacktestEngine(new SimpleMovingAverageStrategy(10,30),10000,0.001);
     public TradeExecutionEngine tradeExecutionEngine = new TradeExecutionEngine(cryptoApiService,tradeHistoryRepository,portfolioRepository,10000,0.02);
+    public ScheduledFuture task;
 
     @GetMapping("/")
     public String viewIndex(Model model){
-//        Trade btc = new Trade(Timestamp.from(Instant.now()), Action.BUY,1707,5,"testCoin");
-//        Trade eth = new Trade(Timestamp.from(Instant.now()), Action.BUY,2707,10,"testCoin2");
-//        tradeHistoryRepository.addTrade(btc);
-//        tradeHistoryRepository.addTrade(eth);
-//        List<Trade> trades = tradeHistoryRepository.getAllTrades();
-//        for(Trade trade : trades){
-//            System.out.println(String.format("%s: %s %.2f of %s for %.2f USD",
-//                    trade.getTimestamp().toString(),
-//                    trade.getAction().toString(),
-//                    trade.getQuantity(),
-//                    trade.getCoinId(),
-//                    trade.getPrice()));
-//        }
-        model.addAttribute("allTrades", tradeHistoryRepository.getAllTrades());
+
+        List<Trade> trades = tradeHistoryRepository.getAllTrades();
+        model.addAttribute("allTrades", trades);
+        model.addAttribute("toggleForm",new ToggleFormDTO(isTrading));
+        model.addAttribute("performanceMetrics",globalPerformanceMetrics);
         return "index";
     }
-    //@Scheduled(cron = "*/45 * * * * *")
-    private void analyzeInRealTime() throws InterruptedException {
-        List<MarketDataDTO> watchlist = cryptoApiService.getTopGainers();
-        RealTimeAnalysisEngine engine = new RealTimeAnalysisEngine();
-        List<PortfolioDTO> portfolio = portfolioRepository.getPortfolio();
-        List<String> ids = portfolio.stream().map(x->x.getCoinId()).collect(Collectors.toList());
-        if(!portfolio.isEmpty()){
-           cryptoApiService.getMarketDataByIds(ids).forEach(x->watchlist.add(x));
-        }
-        for(MarketDataDTO data : watchlist){
-            List<CandleData> historicalData = cryptoApiService.getHistoricalDataById(data.getId());
-            tradeExecutionEngine.analyzeAndExecute(engine.analyzeMarket(data,historicalData));
-            Thread.sleep(25000);
-        }
+    @PostMapping("/switch-mode")
+    public String switchMode(@ModelAttribute ToggleFormDTO data, Model model){
+        isTrading = data.getChecked();
+        return "redirect:/";
     }
+    @PostMapping("/start")
+    public String startBot(){
+        System.out.println("started");
+        if(isRunning!= null) {
+            List<MarketDataDTO> watchlist = cryptoApiService.getTopGainers();
+            RealTimeAnalysisEngine engine = new RealTimeAnalysisEngine();
+            List<PortfolioDTO> portfolio = portfolioRepository.getPortfolio();
+            if (!portfolio.isEmpty()) {
+                List<String> ids = portfolio.stream().map(x -> x.getCoinId()).collect(Collectors.toList());
+                cryptoApiService.getMarketDataByIds(ids).forEach(x -> watchlist.add(x));
+            }
+            task = scheduler.scheduleAtFixedRate(() -> {
+                try {
+                    if(!isRunning){
+                        isRunning = true;
+                        for (MarketDataDTO data : watchlist) {
+                            List<CandleData> historicalData = cryptoApiService.getHistoricalDataById(data.getId());
+                            PerformanceMetrics metrics;
+                            if (isTrading) {
+                                metrics = tradeExecutionEngine.analyzeAndExecute(engine.analyzeMarket(data, historicalData));
+                            } else {
+                                BacktestResult res = backtestEngine.runBacktest(historicalData);
+                                printResults(res);
+                                metrics = new PerformanceMetrics(res.getTotalTrades(),
+                                        ((double) res.getWinningTrades() / res.getTotalTrades()) * 100,
+                                        0,
+                                        res.getFinalCapital());
+                                metrics.setHypotheticalPortfolioVolume(res.getFinalCapital());
+                            }
+                            globalPerformanceMetrics.setActualPortfolioVolume(metrics.getActualPortfolioVolume());
+                            globalPerformanceMetrics.setHypotheticalPortfolioVolume(metrics.getHypotheticalPortfolioVolume());
+                            globalPerformanceMetrics.setActiveTrades(globalPerformanceMetrics.getActiveTrades() + metrics.getActiveTrades());
+                            globalPerformanceMetrics.setTotalTrades(globalPerformanceMetrics.getTotalTrades() + metrics.getTotalTrades());
+                            globalPerformanceMetrics.setAllHoldings(calculateAllHoldins(portfolio));
+                            Thread.sleep(25000);
+                        }
+                    }
+                } catch (Exception e) {
+                    System.err.println("Error in trading cycle: " + e.getMessage());
+                }
+            }, 0, 45, TimeUnit.MINUTES);
+        }
+        return "redirect:/";
+    }
+    @PostMapping("/pause")
+    public String pauseBot(){
+       isRunning = false;
+        System.out.println("paused");
+        return "redirect:/";
+    }
+    @PostMapping("/reset")
+    public String resetBot(){
+        isRunning = false;
+        task.cancel(true);
+//        scheduler.shutdown();
+//        try {
+//            if (!scheduler.awaitTermination(5, TimeUnit.SECONDS)) {
+//                scheduler.shutdownNow();
+//            }
+//        } catch (InterruptedException e) {
+//            scheduler.shutdownNow();
+//            Thread.currentThread().interrupt();
+//        }
+
+        return "redirect:/";
+    }
+
     private static void printResults(BacktestResult result) {
         System.out.println("\n=== BACKTEST RESULTS ===");
         System.out.printf("Strategy: SMA Crossover%n");
@@ -90,5 +147,12 @@ public class HomeController {
                     trade.getCoinId(),
                     trade.getPrice());
         }
+    }
+    private double calculateAllHoldins( List<PortfolioDTO> portfolio ){
+        double sum = 0;
+        for(PortfolioDTO data : portfolio){
+            sum += data.getAmount();
+        }
+        return sum;
     }
 }
