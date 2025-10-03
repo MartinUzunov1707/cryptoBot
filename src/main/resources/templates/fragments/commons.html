@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.w3.org/1999/xhtml">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>javascript</title>
+    <link rel="stylesheet" href="/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/css/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script  th:fragment="head(script)" th:inline="javascript">
+        // Initialize Chart
+document.addEventListener('DOMContentLoaded', function() {
+    const ctx = document.getElementById('priceChart').getContext('2d');
+    const priceChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: ['10:00', '10:15', '10:30', '10:45', '11:00', '11:15', '11:30'],
+            datasets: [{
+                label: 'BTC/USD',
+                data: [45000, 45200, 45100, 45300, 45500, 45400, 45600],
+                borderColor: '#0066ff',
+                backgroundColor: 'rgba(0, 102, 255, 0.1)',
+                borderWidth: 2,
+                fill: true,
+                tension: 0.4
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: false
+                }
+            },
+            scales: {
+                y: {
+                    grid: {
+                        color: 'rgba(255, 255, 255, 0.1)'
+                    },
+                    ticks: {
+                        color: 'rgba(255, 255, 255, 0.7)'
+                    }
+                },
+                x: {
+                    grid: {
+                        color: 'rgba(255, 255, 255, 0.1)'
+                    },
+                    ticks: {
+                        color: 'rgba(255, 255, 255, 0.7)'
+                    }
+                }
+            }
+        }
+    });
+
+    // Mode Toggle
+    const modeToggle = document.getElementById('modeToggle');
+    const modeLabel = document.getElementById('modeLabel');
+    const currentMode = document.getElementById('currentMode');
+
+    modeToggle.addEventListener('change', function() {
+        if (this.checked) {
+            modeLabel.textContent = 'Trading Mode';
+            currentMode.textContent = 'TRADING MODE';
+            currentMode.className = 'badge bg-info fs-6 p-2';
+        } else {
+            modeLabel.textContent = 'Training Mode';
+            currentMode.textContent = 'TRAINING MODE';
+            currentMode.className = 'badge bg-success fs-6 p-2';
+        }
+    });
+
+    // Control Buttons
+    document.getElementById('startBtn').addEventListener('click', function() {
+        document.getElementById('botStatus').textContent = 'RUNNING';
+        document.getElementById('botStatus').className = 'status-running';
+    });
+
+    document.getElementById('pauseBtn').addEventListener('click', function() {
+        document.getElementById('botStatus').textContent = 'PAUSED';
+        document.getElementById('botStatus').className = 'status-idle';
+    });
+
+    document.getElementById('resetBtn').addEventListener('click', function() {
+        document.getElementById('botStatus').textContent = 'IDLE';
+        document.getElementById('botStatus').className = 'status-idle';
+    });
+});
+
+
+// Function to load trade data from API
+let currentPage = 1;
+const tradesPerPage = 10;
+let allTrades = [[${allTrades}]];
+
+// Function to load trade data from API
+function loadTradeData() {
+try {
+console.log('Loading trade data...');
+
+// Display first page
+displayTrades(allTrades);
+
+} catch (error) {
+console.error('Error loading trades:', error);
+displayError('Failed to load trade data: ' + error.message);
+}
+}
+
+// Function to display trades in table with pagination
+function displayTrades(trades) {
+const tbody = document.getElementById('trades-table-body');
+
+if (!tbody) {
+console.error('Table body element not found');
+return;
+}
+
+if (trades.length === 0) {
+tbody.innerHTML = `
+    <tr>
+        <td colspan="7" class="text-center text-muted">
+            No trades found in database
+        </td>
+    </tr>
+`;
+updatePagination(0);
+return;
+}
+
+// Calculate pagination
+const totalPages = Math.ceil(trades.length / tradesPerPage);
+const startIndex = (currentPage - 1) * tradesPerPage;
+const endIndex = startIndex + tradesPerPage;
+const pageTrades = trades.slice(startIndex, endIndex);
+
+// Display current page trades
+tbody.innerHTML = pageTrades.map(trade => `
+<tr>
+    <td>${formatDate(trade.timestamp)}</td>
+    <td><span class="badge ${trade.action === 'SELL' ? 'bg-danger' : 'bg-success'}">${trade.action || 'BUY'}</span></td>
+    <td>${trade.coinId || 'N/A'}/USD</td>
+    <td>${trade.quantity || '0'}</td>
+    <td>$${formatPrice(trade.price)}</td>
+    <td>—</td>
+    <td><span class="badge bg-success">Completed</span></td>
+</tr>
+`).join('');
+
+// Update pagination controls
+updatePagination(trades.length);
+}
+
+// Function to update pagination controls
+function updatePagination(totalTrades) {
+const totalPages = Math.ceil(totalTrades / tradesPerPage);
+const paginationElement = document.getElementById('pagination');
+
+if (!paginationElement) {
+console.log('Pagination element not found');
+return;
+}
+
+if (totalPages <= 1) {
+paginationElement.innerHTML = '';
+return;
+}
+
+let paginationHTML = `
+<li class="page-item ${currentPage === 1 ? 'disabled' : ''}">
+    <a class="page-link" href="#" onclick="changePage(${currentPage - 1})">Previous</a>
+</li>
+`;
+
+// Show page numbers
+for (let i = 1; i <= totalPages; i++) {
+paginationHTML += `
+    <li class="page-item ${currentPage === i ? 'active' : ''}">
+        <a class="page-link" href="#" onclick="changePage(${i})">${i}</a>
+    </li>
+`;
+}
+
+paginationHTML += `
+<li class="page-item ${currentPage === totalPages ? 'disabled' : ''}">
+    <a class="page-link" href="#" onclick="changePage(${currentPage + 1})">Next</a>
+</li>
+`;
+
+paginationElement.innerHTML = paginationHTML;
+}
+
+// Function to change page
+function changePage(page) {
+const totalPages = Math.ceil(allTrades.length / tradesPerPage);
+
+if (page < 1 || page > totalPages) return;
+
+currentPage = page;
+displayTrades(allTrades);
+}
+
+// Function to format price with 2 decimal places
+function formatPrice(price) {
+if (!price) return '0.00';
+return parseFloat(price).toFixed(2);
+}
+
+// Function to format date
+function formatDate(dateString) {
+if (!dateString) return 'N/A';
+try {
+const date = new Date(dateString);
+return date.toLocaleString();
+} catch {
+return dateString;
+}
+}
+
+// Function to display errors
+function displayError(message) {
+const tbody = document.getElementById('trades-table-body');
+if (tbody) {
+tbody.innerHTML = `
+    <tr>
+        <td colspan="7" class="text-center text-danger">
+            ${message}
+        </td>
+    </tr>
+`;
+}
+}
+
+// Your existing filter function
+// Enhanced filter function for multiple criteria
+function filterTable() {
+const dateFilter = document.getElementById('dateFilter').value.toUpperCase();
+const actionFilter = document.getElementById('actionFilter').value.toUpperCase();
+const cryptoFilter = document.getElementById('cryptoFilter').value.toUpperCase();
+
+const table = document.getElementById('myTable');
+const tr = table.getElementsByTagName('tr');
+
+// Start from index 1 to skip header row
+for (let i = 1; i < tr.length; i++) {
+const td = tr[i].getElementsByTagName('td');
+let showRow = true;
+
+// Check date filter (column 0)
+if (dateFilter && td[0]) {
+    const dateValue = td[0].textContent || td[0].innerText;
+    if (dateValue.toUpperCase().indexOf(dateFilter) === -1) {
+        showRow = false;
+    }
+}
+
+// Check action filter (column 1)
+if (actionFilter && td[1] && showRow) {
+    const actionValue = td[1].textContent || td[1].innerText;
+    if (actionValue.toUpperCase().indexOf(actionFilter) === -1) {
+        showRow = false;
+    }
+}
+
+// Check cryptocurrency filter (column 2)
+if (cryptoFilter && td[2] && showRow) {
+    const cryptoValue = td[2].textContent || td[2].innerText;
+    if (cryptoValue.toUpperCase().indexOf(cryptoFilter) === -1) {
+        showRow = false;
+    }
+}
+
+tr[i].style.display = showRow ? "" : "none";
+}
+}
+
+// Function to clear all filters
+function clearFilters() {
+document.getElementById('dateFilter').value = '';
+document.getElementById('actionFilter').value = '';
+document.getElementById('cryptoFilter').value = '';
+filterTable();
+}
+
+// Load trade data when page loads
+document.addEventListener('DOMContentLoaded', function() {
+loadTradeData();
+});
+    </script>
+</head>
+<body>
+
+</body>
+</html>

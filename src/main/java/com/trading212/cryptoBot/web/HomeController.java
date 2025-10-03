@@ -10,6 +10,7 @@ import com.trading212.cryptoBot.service.impl.TradeExecutionEngine;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 
 import java.sql.Timestamp;
@@ -29,7 +30,7 @@ public class HomeController {
     public TradeExecutionEngine tradeExecutionEngine = new TradeExecutionEngine(cryptoApiService,tradeHistoryRepository,portfolioRepository,10000,0.02);
 
     @GetMapping("/")
-    public String viewIndex(){
+    public String viewIndex(Model model){
 //        Trade btc = new Trade(Timestamp.from(Instant.now()), Action.BUY,1707,5,"testCoin");
 //        Trade eth = new Trade(Timestamp.from(Instant.now()), Action.BUY,2707,10,"testCoin2");
 //        tradeHistoryRepository.addTrade(btc);
@@ -43,11 +44,12 @@ public class HomeController {
 //                    trade.getCoinId(),
 //                    trade.getPrice()));
 //        }
+        model.addAttribute("allTrades", tradeHistoryRepository.getAllTrades());
         return "index";
     }
-    @Scheduled(cron = "*/5 * * * * *")
+    //@Scheduled(cron = "*/45 * * * * *")
     private void analyzeInRealTime() throws InterruptedException {
-        List<MarketDataDTO> watchlist = cryptoApiService.getTop10Gainers();
+        List<MarketDataDTO> watchlist = cryptoApiService.getTopGainers();
         RealTimeAnalysisEngine engine = new RealTimeAnalysisEngine();
         List<PortfolioDTO> portfolio = portfolioRepository.getPortfolio();
         List<String> ids = portfolio.stream().map(x->x.getCoinId()).collect(Collectors.toList());
@@ -57,7 +59,7 @@ public class HomeController {
         for(MarketDataDTO data : watchlist){
             List<CandleData> historicalData = cryptoApiService.getHistoricalDataById(data.getId());
             tradeExecutionEngine.analyzeAndExecute(engine.analyzeMarket(data,historicalData));
-            Thread.sleep(35000);
+            Thread.sleep(25000);
         }
     }
     private static void printResults(BacktestResult result) {

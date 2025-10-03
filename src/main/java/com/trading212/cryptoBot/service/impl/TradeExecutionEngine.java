@@ -51,7 +51,7 @@ public class TradeExecutionEngine {
         double currentPrice = analysis.getMarketData().getPrice();
 
         System.out.println("\n=== TRADE DECISION ===");
-        System.out.printf("Symbol: %s | Signal: %s | Confidence: %.1f%% | Price: $%.2f%n",
+        System.out.printf("Id: %s | Signal: %s | Confidence: %.1f%% | Price: $%.2f%n",
                 coinId, signal, confidence * 100, currentPrice);
 
         boolean hasPosition = activePositions.containsKey(coinId);

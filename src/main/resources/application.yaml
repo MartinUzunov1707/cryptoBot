@@ -28,6 +28,10 @@ spring:
       url: "https://api.coingecko.com/api/v3/"
       key: ${CRYPTO_API_KEY}
   mvc:
+    static-path-reference: /**
     hiddenmethod:
       filter:
         enabled: true
+  web:
+    resources:
+      static-locations: classpath:/static/

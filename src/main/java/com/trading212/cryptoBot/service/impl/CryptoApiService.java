@@ -24,9 +24,9 @@ public class CryptoApiService {
         this.apiConfig = apiConfig;
         this.cryptoRestClient = cryptoRestClient;
     }
-    //Only top 10 because of api request per minute limit
-    public List<MarketDataDTO> getTop10Gainers(){
-        String uri = String.format("%s/coins/markets?per_page=10&vs_currency=USD",apiConfig.getUrl());
+
+    public List<MarketDataDTO> getTopGainers(){
+        String uri = String.format("%s/coins/markets?per_page=100&vs_currency=USD",apiConfig.getUrl());
         List<MarketDataDTO>  list = cryptoRestClient.get()
                 .uri(uri)
                 .accept(MediaType.APPLICATION_JSON)
